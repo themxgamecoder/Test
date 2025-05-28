@@ -1,18 +1,37 @@
+const express = require('express');
+const bodyParser = require('body-parser');
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 
-// Bot token directly here (as requested)
 const token = '8076375530:AAF4MV5hLDDQmwfh4I8FIH6Z4O9sDolqByA';
-const bot = new TelegramBot(token, { polling: true });
+const bot = new TelegramBot(token);
+const app = express();
 
-// Link map
+const PORT = process.env.PORT || 3000;
+const URL = 'https://your-render-app-name.onrender.com'; // 👈 change this to your actual Render URL
+
+// Use middleware
+app.use(bodyParser.json());
+
+// Webhook endpoint
+app.post(`/bot${token}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+// Start express server
+app.listen(PORT, async () => {
+  console.log(`🚀 Server is running on port ${PORT}`);
+  await bot.setWebHook(`${URL}/bot${token}`);
+});
+
+// Telegram Logic
 const sources = {
   strong: 'https://mx-credsjson-wsbw.onrender.com/code',
   not_strong: 'https://mega-js-pair-code.onrender.com/code',
   third: 'https://mx-web-pair-jmwt.onrender.com/code'
 };
 
-// Store user choices
 const userStates = new Map();
 
 bot.onText(/\/start/, (msg) => {
@@ -21,7 +40,7 @@ bot.onText(/\/start/, (msg) => {
 
 bot.onText(/\/pair/, (msg) => {
   const chatId = msg.chat.id;
-  userStates.delete(chatId); // reset state
+  userStates.delete(chatId);
 
   const options = {
     reply_markup: {
@@ -58,19 +77,17 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
 
-  // Ignore commands
   if (text.startsWith('/')) return;
 
   const state = userStates.get(chatId);
   if (!state || !state.source) return;
 
-  // Validate number
   if (!/^\d{10,15}$/.test(text)) {
     return bot.sendMessage(chatId, `❌ Invalid number. Please send only digits (e.g. 234XXXXXXXXXX)`);
   }
 
   const selectedURL = sources[state.source];
-  userStates.delete(chatId); // clear state
+  userStates.delete(chatId);
 
   bot.sendMessage(chatId, `⏳ Generating your code from selected source...`);
 
